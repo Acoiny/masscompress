@@ -8,7 +8,6 @@ import shutil
 from sys import argv
 from sys import stderr
 
-ERROR = '\033[91mError:\033[0m'
 
 def getArguments() -> tuple[str, str, int]:
     from getopt import getopt, GetoptError
@@ -48,7 +47,8 @@ def perror(msg: str, exitCode: int = 1):
     '''
     Prints the given error message and then exits
     '''
-    print(f'ERROR: {msg}', file=stderr)
+    ERROR = '\033[91mError:\033[0m'
+    print(f'{ERROR} {msg}', file=stderr)
     exit(exitCode)
 
 
@@ -98,7 +98,7 @@ def compress_image(image_name, size, source_folder, dest_folder):
 
             qual -= 20
         except Image.UnidentifiedImageError:
-            print(f"{ERROR} {source_image} is not an image")
+            perror(f"{source_image} is not an image")
             return
 
     if currSize > size:
@@ -109,13 +109,13 @@ def compress_image(image_name, size, source_folder, dest_folder):
 
 
 if __name__ == '__main__':
+
     source_folder, dest_folder, maxSize = getArguments()
+
     if not os.path.isdir(source_folder):
-        print(f"{ERROR} {source_folder} is not a directory")
-        exit(1)
+        perror(f"{source_folder} is not a directory")
     if not os.path.isdir(dest_folder):
-        print(f"{ERROR} {dest_folder} is not a directory")
-        exit(1)
+        perror(f"{dest_folder} is not a directory")
     for dirpath, dirnames, filenames in os.walk(source_folder):
         for file in filenames:
             compress_image(file, maxSize, source_folder, dest_folder)
