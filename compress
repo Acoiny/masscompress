@@ -1,0 +1,121 @@
+#!/usr/bin/env python
+
+
+from PIL import Image
+import os
+import shutil
+
+from sys import argv
+from sys import stderr
+
+ERROR = '\033[91mError:\033[0m'
+
+def getArguments() -> tuple[str, str, int]:
+    from getopt import getopt, GetoptError
+
+    source: str = ''
+    dest: str = ''
+    maxSize: int = -1
+
+    try:
+        opts, _ = getopt(argv[1:], 's:d:m:h')
+        for o, arg in opts:
+            match o:
+                case '-s':
+                    source = arg
+                case '-d':
+                    dest = arg
+                case '-m':
+                    maxSize = int(arg)
+                case '-h':
+                    printUsage()
+                    exit(0)
+                case _:
+                    printUsage()
+                    exit(1)
+
+        if source == '': perror("No source folder given!")
+        if dest == '': perror("No destination folder given!")
+        if maxSize == -1: perror("No maximum size given!")
+
+        return (source, dest, maxSize)
+
+    except GetoptError as e:
+        print(e)
+        exit(1)
+
+def perror(msg: str, exitCode: int = 1):
+    '''
+    Prints the given error message and then exits
+    '''
+    print(f'ERROR: {msg}', file=stderr)
+    exit(exitCode)
+
+
+
+def printUsage():
+    '''
+    Prints the help message
+    '''
+    print(
+f"""
+usage: {argv[0]} -s <source folder> -d <destination folder> -m <max size in bytes>
+    -s      the source folder in which the images are found
+    -d      the destination folder to copy compressed images to
+    -m      the maximum size images can have (in bytes!)
+    -h      print this help message
+""")
+
+
+def compress_image(image_name, size, source_folder, dest_folder):
+    '''
+    Compresses an image to the specfied size or less via bruteforce trial and error
+    '''
+    qual = 60
+
+    # the image's name get's passed, without path
+    source_image = f"{source_folder}/{image_name}"
+    dest_image = f"{dest_folder}/{image_name}"
+    
+    if not os.path.isfile(source_image):
+        raise Exception(f"{source_image} doesn't exist")
+
+    currSize = os.stat(source_image).st_size
+
+    if currSize <= size:
+        shutil.copyfile(source_image, dest_image)
+        print(f"Image {source_image} is already {currSize/1000}kb, copied to {dest_image}")
+        return
+
+
+    while currSize > size and qual > 0:
+        try:
+            pic = Image.open(source_image)
+
+            pic.save(dest_image, optimize=True, quality=qual)
+
+            currSize = os.stat(dest_image).st_size
+
+            qual -= 20
+        except Image.UnidentifiedImageError:
+            print(f"{ERROR} {source_image} is not an image")
+            return
+
+    if currSize > size:
+        os.remove(dest_image)
+        print(f"{dest_image} could not be compressed to under {size} bytes")
+    else:
+        print(f"Image {source_image} compressed to {currSize/1000}kb at {dest_image}")
+
+
+if __name__ == '__main__':
+    source_folder, dest_folder, maxSize = getArguments()
+    if not os.path.isdir(source_folder):
+        print(f"{ERROR} {source_folder} is not a directory")
+        exit(1)
+    if not os.path.isdir(dest_folder):
+        print(f"{ERROR} {dest_folder} is not a directory")
+        exit(1)
+    for dirpath, dirnames, filenames in os.walk(source_folder):
+        for file in filenames:
+            compress_image(file, maxSize, source_folder, dest_folder)
